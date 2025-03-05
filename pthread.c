@@ -9,8 +9,9 @@ typedef struct subarray
 	int end;
 } *subay;
 
-void* sum_subarray(void* sub_array )/*用于计算加法的函数，未来会用SMID优化*/
+void* sum_subarray(void* arg )/*用于计算加法的函数，未来会用SMID优化*/
  	{
+ 	        subay sub_array=(subay)arg;
 		int *result=(int*)malloc(sizeof(int));
 		*result=0;
 		for(int i=sub_array->begin;i<sub_array->end;i++)
@@ -21,29 +22,40 @@ void* sum_subarray(void* sub_array )/*用于计算加法的函数，未来会用
 	}
   int sub_array(int *ary,int len)
 	{
-		pthread_t *THREAD_ID	    =(pthread_t*)malloc(THREAD_NUMBER*sizeof(pthread_t) );
-		subay subarrayi = (subay)malloc(sizeof(struct subarray) *THREAD_NUMBER ) ;
+		 pthread_t *THREAD_ID = malloc(THREAD_NUMBER * sizeof(pthread_t));
+    if (THREAD_ID == NULL) {
+        perror("Failed to allocate memory for THREAD_ID");
+        return -1;
+    }
+
+    subay subarrayi = malloc(sizeof(struct subarray) * THREAD_NUMBER);
+    if (subarrayi == NULL) {
+        perror("Failed to allocate memory for subarrayi");
+        free(THREAD_ID);
+        return -1;
+    }
 		
 		int last=len%THREAD_NUMBER;
 		int once=len/THREAD_NUMBER;
-		++once;
-		for(int i=THREAD_NUMBER-last;i<THREAD_NUMBER;++i)
+		int begin=0;
+		for(int i=0;i<THREAD_NUMBER;i++)
 		{
-			(subarrayi+i)->parentarray=ary;
-			(subarrayi+i)->begin=len-once*(THREAD_NUMBER-i)-once;
-			(subarrayi+i)->end=(subarrayi+i)->begin+once;
-		}
-		once--;
-		for(int i=0;i<THREAD_NUMBER-last;++i)
-		{
-			(subarrayi+i)->parentarray=ary;
-			(subarrayi+i)->begin=once*i;
-			(subarrayi+i)->end=(subarrayi+i)->begin+once;
-		
+		      (subarrayi+i)->parentarray=ary;
+		      (subarrayi+i)->begin=begin;
+		      if(i<last)
+		      begin+=once+1;
+		      else 
+		      begin+=once;
+		      (subarrayi+i)->end=begin;
 		}
 		for(int i=0;i<THREAD_NUMBER;i++)
 			{
-				pthread_create(THREAD_ID+i,NULL,sum_subarray,(void*)(subarrayi+i));
+				if (pthread_create(THREAD_ID + i, NULL, sum_subarray, (void*)(subarrayi + i)) != 0) {
+            perror("Failed to create thread");
+            free(THREAD_ID);
+            free(subarrayi);
+            return -1;
+        }
 		}
 		int result=0;
 		void * usefor;
@@ -57,3 +69,12 @@ void* sum_subarray(void* sub_array )/*用于计算加法的函数，未来会用
 		free(subarrayi);
 		return result;
 	}  
+	
+	int main() {
+    int array[] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
+    int length = sizeof(array) / sizeof(array[0]);
+    int result = sub_array(array, length);
+    printf("Sum: %d\n", result);
+    return 0;
+}
+
