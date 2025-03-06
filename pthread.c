@@ -102,7 +102,7 @@ void* sum_subarray(void* arg )/*用于计算加法的函数，未来会用SMID�
 	
 	
 	int main() {//该main函数仅用于测试
-    int array[] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10,44,55,6,-2,45,89};
+    int array[] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10,44,55,6,-2,45,89,56,55,44,55,43,66,22,33,0xAA,'h',23,35,35,11,1,1,1};
     int length = sizeof(array) / sizeof(array[0]);
     int result = sub_array(array, length);
     printf("Sum: %d\n", result);
