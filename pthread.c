@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
+#include <immintrin.h>
+#include <string.h>
 #define THREAD_NUMBER 5
 typedef struct subarray
 {
@@ -14,11 +16,39 @@ void* sum_subarray(void* arg )/*用于计算加法的函数，未来会用SMID�
  	        subay sub_array=(subay)arg;
 		int *result=(int*)malloc(sizeof(int));
 		*result=0;
-		for(int i=sub_array->begin;i<sub_array->end;i++)
-		{
-			*result+=(sub_array->parentarray)[i];
-		}
-		return result;
+		int n = sub_array->end - sub_array->begin ;
+		size_t new_n = (n + 7) & ~((size_t)7);
+                  int *dst = aligned_alloc(32, new_n * sizeof(int));
+                  
+               if (!dst) {
+              perror("内存分配失败");
+              return result;
+                }    
+                
+                memcpy(dst, sub_array->parentarray + sub_array->begin, n * sizeof(int));
+                
+                 for (size_t i = n; i < new_n; i++) {
+          dst[i] = 0;
+         }   
+    __m256i sum_vec = _mm256_setzero_si256();
+          
+		   for (size_t i = 0; i < new_n; i+=8) {
+        // 使用对齐加载，因为我们保证了数据对齐
+        __m256i vec = _mm256_load_si256(  (__m256i*) ( dst + i ) );
+        sum_vec = _mm256_add_epi32(sum_vec, vec);
+    }
+      free(dst);
+	  __m128i low128 = _mm256_castsi256_si128(sum_vec);
+    __m128i high128 = _mm256_extracti128_si256(sum_vec, 1);
+    __m128i sum128 = _mm_add_epi32(low128, high128);
+    
+    // 2. 使用水平加法，将128位向量内的4个32位整数归约为一个标量
+    sum128 = _mm_hadd_epi32(sum128, sum128);  // 将4个数变为两个数： [a0+a1, a2+a3, a0+a1, a2+a3]
+    sum128 = _mm_hadd_epi32(sum128, sum128);  // 将两个数相加，所有元素相同
+
+   *result= _mm_cvtsi128_si32(sum128);  // 提取第一个元素作为最终和
+      
+	return result;
 	}
   int sub_array(int *ary,int len)
 	{
@@ -70,8 +100,9 @@ void* sum_subarray(void* arg )/*用于计算加法的函数，未来会用SMID�
 		return result;
 	}  
 	
-	int main() {
-    int array[] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
+	
+	int main() {//该main函数仅用于测试
+    int array[] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10,44,55,6,-2,45,89};
     int length = sizeof(array) / sizeof(array[0]);
     int result = sub_array(array, length);
     printf("Sum: %d\n", result);
